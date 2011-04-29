@@ -35,6 +35,12 @@ done
 OS=`uname -s`
 if [[ $OS == 'Linux' ]]; then
     PLATFORM='Linux'
+    HAS_YUM=`which yum`
+    if [[ "`which yum`" == "" ]]; then
+        LINUX_TYPE='APT'
+    else
+        LINUX_TYPE='YUM'
+    fi
 elif [[ $OS == 'Darwin' ]]; then
     PLATFORM='MacOSX'
 else
@@ -44,10 +50,9 @@ fi
 
 echo ""
 echo '-----------------------------------------------------------'
-echo "($PLATFORM) Setup for VMware's Cloud Application Platform!"
+echo "($PLATFORM - $LINUX_TYPE) Setup for VMware's Cloud Application Platform!"
 echo '-----------------------------------------------------------'
 echo ""
-
 
 if [[ $ALL != true ]]; then
   echo "Just hit <enter> to skip any item"
@@ -70,13 +75,20 @@ fi
 
 echo "Installing default packages"
 if [[ $PLATFORM == 'Linux' ]]; then
-    apt-get install -qqy wget curl libcurl3 libcurl3-dev bison build-essential zlib1g-dev libssl-dev libreadline5-dev libxml2 libxml2-dev libxslt1.1 libxslt1-dev git-core sqlite3 libsqlite3-ruby libsqlite3-dev unzip zip
+    if [[ $LINUX_TYPE == 'YUM' ]]; then
+        yum install -y wget curl libcurl libcurl-devel bison gcc gcc-c++ zlib-devel openssl-devel readline-devel libxml2 libxml2-devel libxslt libxslt-devel git sqlite sqlite-devel unzip zip glibc-devel make ncurses-devel 
+    else
+        apt-get install -qqy wget curl libcurl3 libcurl3-dev bison build-essential zlib1g-dev libssl-dev libreadline5-dev libxml2 libxml2-dev libxslt1.1 libxslt1-dev git-core sqlite3 libsqlite3-ruby libsqlite3-dev unzip zip
+    fi
 fi
 
 if [[ $PLATFORM == 'Linux' ]]; then
-    # Probably should make this something different instead of apt_get
-    echo "Installing Ruby"
-    apt-get install -qqy ruby-full rake
+    if  [[ "`ruby -v | grep 1.9.2 `" == "" ]]; then
+        echo "Please install Ruby (preferably using rvm)"
+        exit -1
+    fi
+    #echo "Installing Ruby"
+    #apt-get install -qqy ruby-full rake
 fi
 
 # This is site/setup specific, can be commented out if not needed.
@@ -100,9 +112,8 @@ if [ "$(gem -v)" != $RUBYGEMS_VERSION ]; then
     rm -fr rubygems-$RUBYGEMS_VERSION
     popd
 fi
-ln -sf /usr/bin/gem1.8 /usr/bin/gem
+#ln -sf /usr/bin/gem1.8 /usr/bin/gem
 
-echo "Creating default directories at /var/vcap"
 
 if [ ! -d '/var/vcap' ]; then
     mkdir /var/vcap
@@ -133,12 +144,17 @@ if [[ $ROUTER == true || $ALL == true ]]; then
 
     echo "Installing Nginx."
     if [[ $PLATFORM == 'Linux' ]]; then
-	apt-get install -qqy nginx
+        if [[ $LINUX_TYPE == 'YUM' ]]; then
+            yum install -y nginx
+        else
+	    apt-get install -qqy nginx
+        fi
     elif [[ $PLATFORM == 'MacOSX' ]]; then
 	echo -e "\033[31mFIXME: Implement for MacOSX \033[0m"
     fi
     echo ""
 fi
+
 
 # CloudController
 if [[ $ALL != true ]]; then
@@ -153,13 +169,17 @@ if [[ $CC == true || $ALL == true ]]; then
         if [[ $ALL != true ]]; then
             read -p "Should I do a production setup as well (Postgres/MySQL)? [y/N] "
             if [[ $REPLY =~ ^[yY]$ ]]; then
-                $RELATIONAL_DBS=true
+                RELATIONAL_DBS=true
             fi
         fi
 
 	if [[ $RELATIONAL_DBS == true || $ALL == true ]]; then
 	    echo "Installing PostgreSQL server and support"
-	    apt-get install -qqy postgresql libpq-dev
+            if [[ $LINUX_TYPE == 'YUM' ]]; then
+	        yum install -y postgresql postgresql-devel
+            else
+	        apt-get install -qqy postgresql libpq-dev
+            fi
 	    echo "Installing pg gems"
 	    gem install pg --no-rdoc --no-ri
 	    echo ""
@@ -168,7 +188,11 @@ if [[ $CC == true || $ALL == true ]]; then
           echo mysql-server-5.1 mysql-server/root_password select $MYSQL_PASS | sudo debconf-set-selections
           echo mysql-server-5.1 mysql-server/root_password_again select $MYSQL_PASS | sudo debconf-set-selections
         fi
-	    apt-get install -qqy mysql-server ruby-dev libmysql-ruby libmysqlclient-dev
+            if [[ $LINUX_TYPE == 'YUM' ]]; then
+	        yum install -y mysql-server mysql-devel mysql-libs
+            else
+	        apt-get install -qqy mysql-server ruby-dev libmysql-ruby libmysqlclient-dev
+            fi
 	    echo "Installing mysql gems"
 	    gem install mysql --no-rdoc --no-ri
 	    echo ""
@@ -176,7 +200,6 @@ if [[ $CC == true || $ALL == true ]]; then
     elif [[ $PLATFORM == 'MacOSX' ]]; then
 	echo -e "\033[31mFIXME: Implement for MacOSX \033[0m"
     fi
-
 
     # note: vcap start runs db:migrate on each cloud boot
     # no need to run anything during setup
@@ -195,22 +218,38 @@ if [[ $DEA == true || $ALL == true ]]; then
 
     # lsof support for secure dea monitoring, psmisc is for JeOS, which has killall5, not killall
     if [[ $PLATFORM == 'Linux' ]]; then
-	apt-get install -qqy lsof psmisc
+        if [[ $LINUX_TYPE == 'YUM' ]]; then
+	    yum install -y lsof psmisc
+        else
+	    apt-get install -qqy lsof psmisc
+        fi
     elif [[ $PLATFORM == 'MacOSX' ]]; then
 	echo -e "\033[31mFIXME: Implement for MacOSX \033[0m"
     fi
 
     # For Ruby
     if [[ $PLATFORM == 'Linux' ]]; then
-	apt-get install -qqy librmagick-ruby
+        if [[ $LINUX_TYPE == 'YUM' ]]; then
+	    yum install -y ImageMagick-devel ImageMagick ImageMagick-c++ ImageMagick-c++-devel
+            if [[ "$(gem list rmagick | grep rmagick)" == "" ]]; then
+                gem install rmagick --no-ri --no-rdoc
+            fi
+        else
+	    apt-get install -qqy librmagick-ruby
+        fi
     elif [[ $PLATFORM == 'MacOSX' ]]; then
 	echo -e "\033[31mFIXME: Implement for MacOSX \033[0m"
     fi
 
     # Java
     if [[ $PLATFORM == 'Linux' ]]; then
-	JAVA=`dpkg --get-selections | grep sun-java6`
-	echo $JAVA
+        if [[ $LINUX_TYPE == 'YUM' ]]; then
+	    JAVA=`java -version 2>&1 | grep '1.6.0'`
+	    echo yum based java: $JAVA
+        else
+	    JAVA=`dpkg --get-selections | grep sun-java6`
+	    echo $JAVA
+        fi
     elif [[ $PLATFORM == 'MacOSX' ]]; then
 	JAVA=`java -version | grep 'build 1.6.0_22'`
     fi
@@ -218,12 +257,17 @@ if [[ $DEA == true || $ALL == true ]]; then
     if [[ $JAVA == '' ]]; then
         echo "Installing Sun Java 1.6"
 	if [[ $PLATFORM == 'Linux' ]]; then
-            apt-get install -qqy python-software-properties
-            add-apt-repository "deb http://archive.canonical.com/ lucid partner"
-            apt-get -qqy update
-            echo sun-java6-jdk shared/accepted-sun-dlj-v1-1 boolean true | sudo /usr/bin/debconf-set-selections
-            echo sun-java6-jre shared/accepted-sun-dlj-v1-1 boolean true | sudo /usr/bin/debconf-set-selections
-            sudo apt-get install -qqy curl sun-java6-bin sun-java6-jre sun-java6-jdk
+            if [[ $LINUX_TYPE == 'YUM' ]]; then
+                echo "Please make sure the Sun 1.6 JRE is installed for best performance"
+                exit 1
+            else
+                apt-get install -qqy python-software-properties
+                add-apt-repository "deb http://archive.canonical.com/ lucid partner"
+                apt-get -qqy update
+                echo sun-java6-jdk shared/accepted-sun-dlj-v1-1 boolean true | sudo /usr/bin/debconf-set-selections
+                echo sun-java6-jre shared/accepted-sun-dlj-v1-1 boolean true | sudo /usr/bin/debconf-set-selections
+                sudo apt-get install -qqy curl sun-java6-bin sun-java6-jre sun-java6-jdk
+            fi
 	elif [[ $PLATFORM == 'MacOSX' ]]; then
 	    echo -e "\033[31mFIXME: Implement for MacOSX \033[0m"
 	fi
@@ -233,7 +277,7 @@ if [[ $DEA == true || $ALL == true ]]; then
     pushd .
     cd /tmp
 
-    NODE_VERSION=0.4.7
+    NODE_VERSION=0.4.5
 
     if [[ ! `node -v` == 'v'$NODE_VERSION ]]; then
 	wget http://nodejs.org/dist/node-v$NODE_VERSION.tar.gz
@@ -263,7 +307,11 @@ if [[ $DEA == true || $ALL == true ]]; then
 
     echo "Setting up Ruby System Gems and Support"
     if [[ $PLATFORM == 'Linux' ]]; then
-	apt-get install -qqy ruby-dev libmysql-ruby libmysqlclient-dev libpq-dev postgresql-client
+        if [[ $LINUX_TYPE == 'YUM' ]]; then
+	    yum install -y postgresql postgresql-devel mysql-server mysql-devel mysql-libs 
+        else
+	    apt-get install -qqy ruby-dev libmysql-ruby libmysqlclient-dev libpq-dev postgresql-client
+        fi
     elif [[ $PLATFORM == 'MacOSX' ]]; then
 	echo -e "\033[31mFIXME: Implement for MacOSX \033[0m"
     fi
@@ -318,7 +366,11 @@ if [ $? != 0 ]; then
           echo mysql-server-5.1 mysql-server/root_password select $MYSQL_PASS | sudo debconf-set-selections
           echo mysql-server-5.1 mysql-server/root_password_again select $MYSQL_PASS | sudo debconf-set-selections
         fi
-	    apt-get install -qqy mysql-server ruby-dev libmysql-ruby libmysqlclient-dev
+            if [[ $LINUX_TYPE == 'YUM' ]]; then
+	        yum install -y mysql-server mysql-devel mysql-libs 
+            else
+	        apt-get install -qqy mysql-server ruby-dev libmysql-ruby libmysqlclient-dev
+            fi
 	    echo "Installing mysql gems"
 	    gem install mysql --no-rdoc --no-ri
 	    echo ""
@@ -367,13 +419,35 @@ fi
 
 if [[ $RABBITMQ == true || $ALL_SERVICES == true ]]; then
     echo "Installing RabbitMQ Server (version $RABBITMQ_VERSION)"
-    apt-get install -qqy erlang-nox
-    pushd .
-    cd /tmp
-    wget http://www.rabbitmq.com/releases/rabbitmq-server/v$RABBITMQ_VERSION/rabbitmq-server_$RABBITMQ_VERSION_FULL.deb
-    dpkg -i rabbitmq-server_$RABBITMQ_VERSION_FULL.deb
-    rm rabbitmq-server_$RABBITMQ_VERSION_FULL.deb
-    popd
+    if [[ $LINUX_TYPE == 'YUM' ]]; then
+        # Change to yum install erlang when it's available (already available for FC14)
+        echo "Installing erlang"
+	pushd .
+	cd /tmp
+        mkdir erlang-install
+        cd erlang-install
+        wget http://erlang.org/download/otp_src_R14B.tar.gz
+        tar zxf otp_src_R14B.tar.gz
+        cd otp_src_R14B
+        ./configure && make && sudo make install
+        cd ..
+        rm -rf erlang-install  
+
+        echo "And now the RabbitMQ server"
+        wget http://www.rabbitmq.com/releases/rabbitmq-server/v2.4.1/rabbitmq-server-2.4.1-1.noarch.rpm
+        rpm -ivh --nodeps rabbitmq-server-2.4.1-1.noarch.rpm
+        rm rabbitmq-server-2.4.1-1.noarch.rpm
+
+        popd
+    else
+        apt-get install -qqy erlang-nox
+        pushd .
+        cd /tmp
+        wget http://www.rabbitmq.com/releases/rabbitmq-server/v$RABBITMQ_VERSION/rabbitmq-server_$RABBITMQ_VERSION_FULL.deb
+        dpkg -i rabbitmq-server_$RABBITMQ_VERSION_FULL.deb
+        rm rabbitmq-server_$RABBITMQ_VERSION_FULL.deb
+        popd
+    fi
 fi
 
 MONGODB_VERSION=1.8.1
