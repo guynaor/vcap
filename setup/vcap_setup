@@ -322,7 +322,7 @@ if [[ $DEA == true || $ALL == true ]]; then
 
     if [ ! -d '/var/vcap.local' ]; then
 	echo "Creating directory /var/vcap.local"
-	mkdir "/var/vcap.local"
+	mkdir -p "/var/vcap.local/apps"
 	chmod  777 "/var/vcap.local"
     fi
 
