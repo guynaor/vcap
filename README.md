@@ -24,7 +24,7 @@ single vm/single os or can be spread across several machines/vm's.
 
 For development purposes, the preferred environment is to run all of the core
 components within a single vm and then interact with the system from outside of
-the vm via an ssh tunnel. The pre-defined domain *.vcap.me maps to local host,
+the vm via an ssh tunnel. The pre-defined domain `*.vcap.me` maps to local host,
 so when you use this setup, the end result is that your development environment
 is available at [http://api.vcap.me](http://api.vcap.me).
 
@@ -48,19 +48,19 @@ a bringing up a VCAP instance. The other is an automated process contributed
 by the community. In both cases, you need to start with a stock Ubuntu
 server VM.
 
-### step -1:
+### Step 1: create a pristine VM with ssh
 
 * setup a VM with a pristine Ubuntu 10.04.2 server 64bit image,
-  [download here](http://www.ubuntu.com/business/get-ubuntu/download)
+  [download here](http://www.ubuntu.com/download/ubuntu/download)
 * you may wish to snapshot your VM now in case things go pear shaped.
 * great snapshot spots are here and after step 4
 * to enable remote access (more fun than using the console), install ssh.
 
-     sudo apt-get install openssh-server
+To install ssh:
 
-### Automated Setup (experimental):
+    sudo apt-get install openssh-server
 
-#### Step 0:
+#### Step 2: run the automated setup process
 Run the install script. It'll ask for your sudo password at the
 beginning and towards the end. The entire process takes ~1 hour, so just
 keep a loose eye on it.
@@ -68,154 +68,46 @@ keep a loose eye on it.
      sudo apt-get install curl
      bash < <(curl -s -k -B https://github.com/cloudfoundry/vcap/raw/master/setup/install)
 
-Jump to step 9 in the manual process to optionally setup an ssh tunnel
-and test your installation.
+NOTE: The automated setup does not auto-start the system. Once you are
+done with the setup, exit your current shell, restart a new shell and continue
+the following steps
 
-### Manual Setup:
-
-#### step 0: install system and rvm dependencies
-
-    sudo apt-get install autoconf curl git-core ruby bison build-essential zlib1g-dev libssl-dev libreadline5-dev
-
-#### step 1: install rvm
-
-For detailed rvm install instructions see: [https://rvm.beginrescueend.com/rvm/install/](https://rvm.beginrescueend.com/rvm/install/) or follow the quick steps below.
-
-Install rvm using their script. Note: the -k
-switch is only needed if the certificate validation fails:
-
-    bash < <(curl -s -k -B https://rvm.beginrescueend.com/install/rvm)
-
-Follow the instructions given by the RVM
-installer (a copy is included below for your convenience).
-
-    # you must complete the install by loading RVM in new shells.
-    #
-    #
-    #  1) Place the folowing line at the end of your shell's loading files
-    #     (.bashrc or .bash_profile for bash and .zshrc for zsh),
-    #     after all PATH/variable settings:
-    #
-    #     # This loads RVM into a shell session.
-    #     [[ -s \"$rvm_path/scripts/rvm\" ]] && source \"$rvm_path/scripts/rvm\"
-    #
-    #     You only need to add this line the first time you install rvm.
-    #
-    #  2) Ensure that there is no 'return' from inside the ~/.bashrc file,
-    #     otherwise rvm may be prevented from working properly.
-    #
-    #     This means that if you see something like:
-    #
-    #    '[ -z \"\$PS1\" ] && return'
-    #
-    #  then you change this line to:
-    #
-    #  if [[ -n \"\$PS1\" ]] ; then
-    #
-    #    # ... original content that was below the '&& return' line ...
-    #
-    #  fi # <= be sure to close the if at the end of the .bashrc.
-    #
-    #    # this is a good place to source rvm
-    #         [[ -s \"$rvm_path/scripts/rvm\" ]] && source \"$rvm_path/scripts/rvm\"
-    #
-    #   <EOF> - this marks the end of the .bashrc
-    #
-    #     Be absolutely *sure* to REMOVE the '&& return'.
-    #
-    #     If you wish to DRY up your config you can 'source ~/.bashrc' at the
-    #     bottom of your .bash_profile.
-    #
-    #     Placing all non-interactive (non login) items in the .bashrc,
-    #     including the 'source' line above and any environment settings.
-    #
-    #  3) CLOSE THIS SHELL and open a new one in order to use rvm.
-
-
-#### step 2: use rvm to install ruby 1.9.2 and make it default
-
-    rvm install 1.9.2-p180
-    rvm --default 1.9.2-p180
-
-#### step 3: use rvm to install ruby 1.8.7
-
-    rvm install 1.8.7
-
-#### step 4: clone the vcap and vmc repos:
-
-  Optionally create new ssh keys and add them to your github account:
-
-    ssh-keygen -t rsa -C me@example.com
-
-Note, this release uses a handful of submodules. It's important to
-understand the impact of this which is that after cloning the vcap
-repo, you must run: `git submodule update --init`
-
-This ends up mounting the services and tests repos in the directory tree of vcap.
-Any time you git pull in vcap, you must also git submodule update
-
-    mkdir ~/cloudfoundry; cd ~/cloudfoundry
-    git clone https://github.com/cloudfoundry/vcap.git
-
-Note, there should be a .rvmrc file in the ~/cloudfoundry/vcap directory.
-Make sure that the vcap/.rvmrc is present and that it contains rvm use 1.9.2
-
-    cd ~/cloudfoundry/vcap
-    git submodule update --init
-    gem install vmc --no-rdoc --no-ri
-
-#### step 5: run vcap_setup to prep cloudfoundry for launch
-
-Points to keep in mind:
-
-1). Answer Y to all questions
-
-2). Remember your mysql password, you will need it in a minute
-
-    cd ~/cloudfoundry/vcap
-    sudo setup/vcap_setup
-
-After vcap_setup completes, edit your mysql_node config file
-with the correct password created during install
-
-    cd ~/cloudfoundry/vcap/services/mysql/config
-    vi mysql_node.yml and change mysql.pass to your password
-
-#### step 6: restart nginx with a custom config
-
-    cd ~/cloudfoundry/vcap
-    sudo cp setup/simple.nginx.conf /etc/nginx/nginx.conf
-    sudo /etc/init.d/nginx restart
-
-#### step 7: install bundler gem and run bundler:install
-
-    cd ~/cloudfoundry/vcap
-    gem install bundler --no-rdoc --no-ri
-    rake bundler:install
-
-#### step 8: start the system
+#### Step 3: start the system
 
     cd ~/cloudfoundry/vcap
     bin/vcap start
     bin/vcap tail  # see aggregate logs
 
-#### step 9: *Optional, mac users only*, create a local ssh tunnel
+#### Step 4: *Optional, mac users only*, create a local ssh tunnel
 
-From your vm, run ifconfig and note eth0, let's say it's: 192.168.252.130
-go to your mac terminal window and create a local port 80 tunnel.
-Once you do this, from both your mac, and from within the vm, api.vcap.me and *.vcap.me
-map to localhost which maps to your running cloudfoundry instance
+From your VM, run `ifconfig` and note your eth0 IP address, which will look something like: `192.168.252.130`
 
-    sudo ssh -L 80:192.168.252.130:80 mhl@192.168.252.130 -N
+Now go to your mac terminal window and verify that you can connect with SSH:
+
+    ssh <your VM user>@<VM IP address>
+
+If this works, create a local port 80 tunnel:
+
+    sudo ssh -L <local-port>:<VM IP address>:80 <your VM user>@<VM IP address> -N
+
+If you are not already running a local web server, use port 80 as your local port,
+otherwise you may want to use 8080 or another common http port.
+
+Once you do this, from both your mac, and from within the vm, `api.vcap.me` and `*.vcap.me`
+will map to localhost which will map to your running Cloud Foundry instance.
+
 
 Trying your setup
 -----------------
 
-### step 10: validate that you can connect and tests pass
+### Step 5: validate that you can connect and tests pass
 #### From the console of your vm, or from your mac (thanks to local tunnel)
 
     vmc target api.vcap.me
     vmc info
+
+Note: If you are using a tunnel and selected a local port other than 80 you
+will need to modify the target to include it here, like `api.vcap.me:8080`.
 
 #### This should produce roughly the following:
 
@@ -253,7 +145,7 @@ Validation Tests (BVT) to ensure that major functionality is working.
     cd ../health_manager
     rake spec
 
-### step 11: you are done, make sure you can run a simple hello world app.
+### Step 6: you are done, make sure you can run a simple hello world app.
 
 Create an empty directory for your test app (lets call it env), and enter it.
 

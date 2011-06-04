@@ -273,7 +273,7 @@ if [[ $DEA == true || $ALL == true ]]; then
 	fi
     fi
 
-    # Node
+    # Node and Erlang frameworks
     pushd .
     cd /tmp
 
@@ -289,8 +289,32 @@ if [[ $DEA == true || $ALL == true ]]; then
 	cd ..
 	rm node-v$NODE_VERSION.tar.gz
 	rm -fr node-v$NODE_VERSION
-	popd
     fi
+
+    ERLANG_VERSION=R14B02
+
+    if [ ! -d "/var/vcap/runtimes/erlang$ERLANG_VERSION" ]; then
+        if [[ $PLATFORM == 'Linux' ]]; then
+            apt-get -qqy install build-essential libncurses5-dev openssl libssl-dev
+        elif [[ $PLATFORM == 'MacOSX' ]]; then
+            echo -e "\033[31mFIXME: Install MacOSX dependencies \033[0m"
+        fi
+
+        wget http://erlang.org/download/otp_src_$ERLANG_VERSION.tar.gz
+        tar zxvf otp_src_$ERLANG_VERSION.tar.gz
+        cd otp_src_$ERLANG_VERSION
+
+        if [[ $PLATFORM == 'Linux' ]]; then
+            apt-get -qqy install build-essential libncurses5-dev openssl libssl-dev
+        elif [[ $PLATFORM == 'MacOSX' ]]; then
+            echo -e "\033[31mFIXME: Install MacOSX dependencies \033[0m"
+        fi
+
+        ./configure --prefix /var/vcap/runtimes/erlang-$ERLANG_VERSION
+        make
+        make install
+    fi
+    popd
 
     echo "App Platform Support"
     echo "===================="
@@ -303,6 +327,10 @@ if [[ $DEA == true || $ALL == true ]]; then
 
     echo -e "\nNode should now be installed -->"
     node -v
+    echo ""
+
+    echo -e "\nErlang should now be installed -->"
+    erl -version
     echo ""
 
     echo "Setting up Ruby System Gems and Support"
@@ -318,7 +346,12 @@ if [[ $DEA == true || $ALL == true ]]; then
 
     echo "Installing some default system gems"
     echo "gem: --no-rdoc --no-ri" > ~/.gemrc
-    gem install rack rake thin sinatra eventmachine
+
+    # original code did this in one shot, BUT with the rake issues with 0.9.0 and rails 3
+    # we hard version the rake gem to 0.8.7 since that is the only one that really works
+    gem install rack
+    gem install rake --version '0.8.7'
+    gem install thin sinatra eventmachine
 
     if [ ! -d '/var/vcap.local' ]; then
 	echo "Creating directory /var/vcap.local"
