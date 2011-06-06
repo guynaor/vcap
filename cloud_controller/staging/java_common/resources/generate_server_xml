@@ -9,6 +9,7 @@ exit 1 unless tomcat_port
 # Find all the MySQL DBs bound to this app, and prepare for insertion into server.xml
 # as JNDI resources
 # TODO: Currently done for MySQL. Add other services when support in CF is added
+require 'rubygems'
 require 'json'
 bound_services = []
 JSON.parse(ENV['VCAP_SERVICES']).each_pair do |k,v|
