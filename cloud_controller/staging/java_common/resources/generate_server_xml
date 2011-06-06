@@ -6,6 +6,16 @@
 tomcat_port = ARGV[0]
 exit 1 unless tomcat_port
 
+# Find all the MySQL DBs bound to this app, and prepare for insertion into server.xml
+# as JNDI resources
+# TODO: Currently done for MySQL. Add other services when support in CF is added
+require 'json'
+bound_services = []
+JSON.parse(ENV['VCAP_SERVICES']).each_pair do |k,v|
+  # Add only the MySQL bound services. Add others when supported with CF
+  v.each{|e| bound_services << e} if k[0..4] == 'mysql'
+end
+
 require 'erb'
 OUTPUT_PATH = "tomcat/conf/server.xml"
 
@@ -48,6 +58,22 @@ TEMPLATE = <<-ERB
       <Host name="localhost"  appBase="webapps"
             unpackWARs="true" autoDeploy="true"
             xmlValidation="false" xmlNamespaceAware="false">
+        <% if bound_services.size > 0 %>
+        <Context path="" docBase="/ROOT" debug="5" reloadable="true" crossContext="true">
+          <% bound_services.each do |bs| %>
+          <Resource name="jdbc/<%= bs['name'] %>" 
+            auth="Container"
+            type="javax.sql.DataSource"
+            maxActive="100" 
+            maxIdle="30" 
+            maxWait="10000"
+            username="<%= bs['credentials']['user'] %>"
+            password="<%= bs['credentials']['password'] %>"
+            driverClassName="com.mysql.jdbc.Driver"
+            url="jdbc:mysql://<%= bs['credentials']['hostname'] %>:<%= bs['credentials']['port'] %>/<%= bs['credentials']['name'] %>?autoReconnect=true"/>
+          <% end %>
+        </Context>
+        <% end %>
       </Host>
     </Engine>
   </Service>
